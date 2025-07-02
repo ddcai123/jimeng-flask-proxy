@@ -60,7 +60,12 @@ def generate_video():
     headers["X-Date"] = timestamp
     url = f"https://{HOST}/?Action={SUBMIT_ACTION}&Version={API_VERSION}"
     resp = requests.post(url, headers=headers, data=body_json)
-    return jsonify(resp.json())
+    return jsonify({
+    "request_body": request_body,
+    "response_status": resp.status_code,
+    "response_data": resp.json()
+})
+
 
 @app.route('/get-video', methods=['POST'])
 def get_video():
