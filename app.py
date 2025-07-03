@@ -55,36 +55,71 @@ def generate_video():
         "Content-Type": "application/json",
         "Host": HOST
     }
+    
+    # 获取签名
     timestamp, auth = get_signature(headers, body_json, SUBMIT_ACTION)
     headers["Authorization"] = auth
     headers["X-Date"] = timestamp
-    url = f"https://{HOST}/?Action={SUBMIT_ACTION}&Version={API_VERSION}"
-    resp = requests.post(url, headers=headers, data=body_json)
-    return jsonify({
-    "request_body": request_body,
-    "response_status": resp.status_code,
-    "response_data": resp.json()
-})
 
+    url = f"https://{HOST}/?Action={SUBMIT_ACTION}&Version={API_VERSION}"
+    
+    try:
+        # 请求即梦API
+        resp = requests.post(url, headers=headers, data=body_json)
+        resp.raise_for_status()  # 若响应状态码是4xx/5xx会抛出异常
+        
+        # 打印返回内容，帮助调试
+        print("Response Data:", resp.json())
+        
+        # 返回生成请求信息和即梦的响应
+        return jsonify({
+            "request_body": request_body,
+            "response_status": resp.status_code,
+            "response_data": resp.json()
+        })
+    
+    except requests.exceptions.HTTPError as errh:
+        return jsonify({"error": f"Http Error: {str(errh)}"})
+    except requests.exceptions.ConnectionError as errc:
+        return jsonify({"error": f"Error Connecting: {str(errc)}"})
+    except requests.exceptions.Timeout as errt:
+        return jsonify({"error": f"Timeout Error: {str(errt)}"})
+    except requests.exceptions.RequestException as err:
+        return jsonify({"error": f"OOps: Something Else {str(err)}"})
 
 @app.route('/get-video', methods=['POST'])
 def get_video():
     payload = request.json
+    task_id = payload.get("task_id")
+    if not task_id:
+        return jsonify({"error": "Missing task_id"}), 400
+
     request_body = {
         "req_key": "jimeng_vgfm_i2v_l20",
-        "task_id": payload.get("task_id")
+        "task_id": task_id
     }
     body_json = flask.json.dumps(request_body)
     headers = {
         "Content-Type": "application/json",
         "Host": HOST
     }
+    
     timestamp, auth = get_signature(headers, body_json, RESULT_ACTION)
     headers["Authorization"] = auth
     headers["X-Date"] = timestamp
+    
     url = f"https://{HOST}/?Action={RESULT_ACTION}&Version={API_VERSION}"
-    resp = requests.post(url, headers=headers, data=body_json)
-    return jsonify(resp.json())
+    
+    try:
+        resp = requests.post(url, headers=headers, data=body_json)
+        resp.raise_for_status()  # 若响应状态码是4xx/5xx会抛出异常
+        
+        # 返回任务查询结果
+        return jsonify(resp.json())
+    
+    except requests.exceptions.RequestException as err:
+        return jsonify({"error": f"Request failed: {str(err)}"}), 500
+
 
 if __name__ == '__main__':
      port = int(os.environ.get("PORT", 5000))
